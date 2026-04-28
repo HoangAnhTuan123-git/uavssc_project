@@ -1,0 +1,33 @@
+seed: 42
+output_dir: runs/cgformer_style
+data:
+  preprocess_root: /path/to/rgb_npz_root
+  data_root: /path/to/UAVScenes
+  scene_filter: []
+  split_ratios:
+  - 0.7
+  - 0.15
+  - 0.15
+  image_size:
+  - 640
+  - 640
+  split_files:
+    train: ''
+    val: ''
+    test: ''
+model:
+  name: cgformer_style
+  num_classes: 26
+  infer_num_classes_from_data: true
+  feat_dim: 96
+  hidden_dim: 64
+  num_heads: 4
+train:
+  batch_size: 1
+  epochs: 20
+  num_workers: 4
+  lr: 0.0002
+  weight_decay: 0.0001
+  amp: true
+  occ_loss_weight: 0.25
+  grad_clip: 1.0

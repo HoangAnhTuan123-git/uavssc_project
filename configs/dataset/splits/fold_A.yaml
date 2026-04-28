@@ -1,0 +1,11 @@
+fold: fold_A
+train_scenes:
+- AMtown
+- AMvalley
+val_scenes:
+- HKairport
+test_scenes:
+- HKisland
+train_samples_file: data/splits/scene_strict_cv/fold_A/train_samples.txt
+val_samples_file: data/splits/scene_strict_cv/fold_A/val_samples.txt
+test_samples_file: data/splits/scene_strict_cv/fold_A/test_samples.txt

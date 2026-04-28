@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uavssc"
+version = "0.1.0"
+description = "UAVScenes to aerial semantic scene completion starter"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]

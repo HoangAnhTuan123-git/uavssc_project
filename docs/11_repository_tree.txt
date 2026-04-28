@@ -1,0 +1,254 @@
+uavssc_master_project/
+├── checkpoints/
+│   ├── fusion/
+│   ├── lidar_lmscnet/
+│   ├── lidar_scpnet/
+│   ├── rgb_cgformer/
+│   ├── rgb_monoscene/
+│   │   ├── fold_A/
+│   │   ├── fold_B/
+│   │   ├── fold_C/
+│   │   └── fold_D/
+│   └── rgb_voxformer/
+├── configs/
+│   ├── dataset/
+│   │   ├── splits/
+│   │   │   ├── fold_A.yaml
+│   │   │   ├── fold_B.yaml
+│   │   │   ├── fold_C.yaml
+│   │   │   └── fold_D.yaml
+│   │   ├── uavscenes_interval1.yaml
+│   │   └── uavscenes_interval5.yaml
+│   ├── preprocess/
+│   │   └── default_master.yaml
+│   └── train/
+│       ├── cgformer/
+│       │   └── README.md
+│       ├── fusion/
+│       │   └── README.md
+│       ├── lmscnet/
+│       │   └── README.md
+│       ├── monoscene/
+│       │   └── README.md
+│       ├── scpnet/
+│       │   └── README.md
+│       └── voxformer/
+│           └── README.md
+├── data/
+│   ├── external/
+│   │   └── pretrained/
+│   │       ├── cgformer/
+│   │       ├── lmscnet/
+│   │       ├── monoscene/
+│   │       ├── scpnet/
+│   │       └── voxformer/
+│   ├── index/
+│   │   ├── checksums/
+│   │   ├── README.md
+│   │   ├── scene_groups.yaml
+│   │   ├── scene_registry_template.csv
+│   │   └── taxonomy_raw_to_train.csv
+│   ├── processed/
+│   │   ├── cache/
+│   │   ├── exports/
+│   │   │   ├── fusion_npz/
+│   │   │   ├── lidar_lmscnet_npz/
+│   │   │   ├── lidar_scpnet_npz/
+│   │   │   ├── rgb_cgformer_npz/
+│   │   │   ├── rgb_monoscene_npz/
+│   │   │   └── rgb_voxformer_npz/
+│   │   ├── qc/
+│   │   │   ├── overlays_lidar/
+│   │   │   ├── overlays_rgb/
+│   │   │   ├── reprojection_checks/
+│   │   │   └── scene_stats/
+│   │   ├── scene_voxels/
+│   │   ├── sparse_votes/
+│   │   └── README.md
+│   ├── raw/
+│   │   └── uavscenes_official/
+│   │       └── README_DATASET_PLACEHOLDER.md
+│   └── splits/
+│       ├── run_revisit/
+│       │   ├── AMtown/
+│       │   ├── AMvalley/
+│       │   ├── HKairport/
+│       │   └── HKisland/
+│       └── scene_strict_cv/
+│           ├── fold_A/
+│           ├── fold_B/
+│           ├── fold_C/
+│           └── fold_D/
+├── docs/
+│   ├── 00_project_scope.md
+│   ├── 01_dataset_inventory.md
+│   ├── 02_scene_grouping_and_splits.md
+│   ├── 03_taxonomy_mapping.md
+│   ├── 04_coordinate_frames_and_calibration.md
+│   ├── 05_preprocessing_spec.md
+│   ├── 06_training_protocols.md
+│   ├── 07_evaluation_metrics.md
+│   ├── 08_hardware_budget.md
+│   ├── 09_experiment_log.md
+│   └── 10_known_issues.md
+├── LICENSES/
+│   └── README.md
+├── logs/
+│   ├── stdout/
+│   ├── tensorboard/
+│   └── wandb/
+├── preprocessing/
+│   ├── configs/
+│   │   └── default.yaml
+│   ├── scripts/
+│   │   ├── 00_inspect_dataset.py
+│   │   ├── 01_build_taxonomy.py
+│   │   ├── 02_build_manifest.py
+│   │   ├── 03_projection_debug.py
+│   │   ├── 04_fuse_global_semantic_cloud.py
+│   │   ├── 05_build_scene_voxel_grid.py
+│   │   ├── 07_train_lidar_dense_baseline.py
+│   │   ├── 08_validate_label_pairing.py
+│   │   ├── 09_build_scene_boxes.py
+│   │   ├── 10_export_fusion_ssc.py
+│   │   ├── 10_export_lidar_ssc.py
+│   │   ├── 10_export_rgb_ssc.py
+│   │   └── 11_overlay_npz_alignment.py
+│   ├── src/
+│   │   ├── uavssc/
+│   │   │   ├── __init__.py
+│   │   │   ├── constants.py
+│   │   │   ├── dataset.py
+│   │   │   ├── export_common.py
+│   │   │   ├── io.py
+│   │   │   ├── manifest.py
+│   │   │   ├── models.py
+│   │   │   ├── monoscene_utils.py
+│   │   │   ├── projection.py
+│   │   │   ├── transforms.py
+│   │   │   ├── utils.py
+│   │   │   ├── visualization.py
+│   │   │   └── voxel.py
+│   │   └── uavssc.egg-info/
+│   │       ├── dependency_links.txt
+│   │       ├── PKG-INFO
+│   │       ├── SOURCES.txt
+│   │       └── top_level.txt
+│   ├── environment.yml
+│   ├── pyproject.toml
+│   └── README.md
+├── results/
+│   ├── figures/
+│   ├── metrics/
+│   │   ├── run_revisit/
+│   │   └── scene_strict_cv/
+│   ├── qualitative/
+│   │   ├── fusion/
+│   │   ├── lidar_only/
+│   │   └── rgb_only/
+│   └── tables/
+├── scripts/
+│   ├── eval_all_folds.sh
+│   ├── link_dataset.sh
+│   ├── make_sample_lists_from_npz.py
+│   ├── make_scene_registry.py
+│   ├── make_splits_run_revisit.py
+│   ├── make_splits_scene_strict.py
+│   ├── summarize_results.py
+│   └── train_all_folds.sh
+├── third_party/
+├── training/
+│   ├── lidar_lmscnet_style/
+│   │   ├── configs/
+│   │   │   └── default.yaml
+│   │   ├── scripts/
+│   │   │   ├── bootstrap_official_repo.sh
+│   │   │   ├── example_eval.sh
+│   │   │   └── example_train.sh
+│   │   ├── src/
+│   │   │   └── uavssc_trainkit/
+│   │   ├── eval.py
+│   │   ├── README.md
+│   │   ├── requirements.txt
+│   │   └── train.py
+│   ├── lidar_scpnet_style/
+│   │   ├── configs/
+│   │   │   └── default.yaml
+│   │   ├── scripts/
+│   │   │   ├── bootstrap_official_repo.sh
+│   │   │   ├── example_eval.sh
+│   │   │   └── example_train.sh
+│   │   ├── src/
+│   │   │   └── uavssc_trainkit/
+│   │   ├── eval.py
+│   │   ├── README.md
+│   │   ├── requirements.txt
+│   │   └── train.py
+│   ├── rgb_cgformer_style/
+│   │   ├── configs/
+│   │   │   └── default.yaml
+│   │   ├── scripts/
+│   │   │   ├── bootstrap_official_repo.sh
+│   │   │   ├── example_eval.sh
+│   │   │   └── example_train.sh
+│   │   ├── src/
+│   │   │   └── uavssc_trainkit/
+│   │   ├── tools/
+│   │   │   └── check_npz.py
+│   │   ├── eval.py
+│   │   ├── README.md
+│   │   ├── requirements.txt
+│   │   └── train.py
+│   ├── rgb_lidar_fusion_gate3d/
+│   │   ├── configs/
+│   │   │   └── default.yaml
+│   │   ├── scripts/
+│   │   │   ├── bootstrap_official_repo.sh
+│   │   │   ├── example_eval.sh
+│   │   │   └── example_train.sh
+│   │   ├── src/
+│   │   │   └── uavssc_trainkit/
+│   │   ├── tools/
+│   │   │   └── check_npz.py
+│   │   ├── eval.py
+│   │   ├── README.md
+│   │   ├── requirements.txt
+│   │   └── train.py
+│   ├── rgb_monoscene_official_adapter/
+│   │   ├── MonoScene/
+│   │   │   ├── monoscene/
+│   │   │   ├── scripts/
+│   │   │   ├── teaser/
+│   │   │   ├── trained_models/
+│   │   │   ├── .gitignore
+│   │   │   ├── LICENSE
+│   │   │   ├── predict_local.py
+│   │   │   ├── README.md
+│   │   │   ├── README2.md
+│   │   │   ├── requirements.txt
+│   │   │   ├── setup.py
+│   │   │   └── view_drone.py
+│   │   └── README.md
+│   ├── rgb_voxformer_style/
+│   │   ├── configs/
+│   │   │   └── default.yaml
+│   │   ├── scripts/
+│   │   │   ├── bootstrap_official_repo.sh
+│   │   │   ├── example_eval.sh
+│   │   │   └── example_train.sh
+│   │   ├── src/
+│   │   │   └── uavssc_trainkit/
+│   │   ├── tools/
+│   │   │   └── check_npz.py
+│   │   ├── eval.py
+│   │   ├── README.md
+│   │   ├── requirements.txt
+│   │   └── train.py
+│   ├── shared/
+│   │   └── uavssc_trainkit/
+│   │       ├── uavssc_trainkit/
+│   │       └── __init__.py
+│   ├── HARDWARE_GUIDE.md
+│   └── README.md
+├── .gitignore
+└── README.md

@@ -1,0 +1,7 @@
+train:
+- HKairport
+- HKisland
+val:
+- AMtown
+test:
+- AMvalley

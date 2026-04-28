@@ -1,0 +1,9 @@
+physical_scenes:
+  AMtown: []
+  AMvalley: []
+  HKairport: []
+  HKisland: []
+
+notes:
+  - Fill the run lists after generating `data/index/scene_registry.csv`.
+  - Keep all runs of the same physical scene together for the main benchmark.

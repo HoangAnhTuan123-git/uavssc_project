@@ -1,0 +1,18 @@
+raw_root: data/raw/uavscenes_official
+index_root: data/index
+processed_root: data/processed
+split_root: data/splits
+use_interval: 5
+voxel:
+  voxel_size_m: 2.0
+  min_occ_votes: 1
+  min_free_votes: 1
+  occ_free_ratio: 0.5
+  ray_step_ratio: 0.5
+  ray_keep_prob: 0.05
+  min_rays_per_frame: 2000
+  max_rays_per_frame: 5000
+local_grid:
+  size_m: [256.0, 256.0, 64.0]
+  z_above_ground_m: 56.0
+  z_below_ground_m: 8.0

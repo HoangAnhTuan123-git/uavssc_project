@@ -1,0 +1,25 @@
+name: uavssc
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pytorch
+  - torchvision
+  - numpy
+  - scipy
+  - pandas
+  - pyarrow
+  - pyyaml
+  - tqdm
+  - matplotlib
+  - opencv
+  - open3d
+  - trimesh
+  - imageio
+  - pillow
+  - scikit-learn
+  - pip
+  - pip:
+      - orjson
+      - rich

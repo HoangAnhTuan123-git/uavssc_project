@@ -1,0 +1,8 @@
+base_config: training/lidar_lmscnet_style/configs/default.yaml
+preprocess_root: data/processed/exports/lidar_lmscnet_npz
+data_root: data/raw/uavscenes_official
+fold: fold_A
+split_files:
+  train: data/splits/scene_strict_cv/fold_A/train_samples.txt
+  val: data/splits/scene_strict_cv/fold_A/val_samples.txt
+  test: data/splits/scene_strict_cv/fold_A/test_samples.txt

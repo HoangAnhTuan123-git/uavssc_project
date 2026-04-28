@@ -1,0 +1,6 @@
+name: uavscenes_interval5
+raw_root: data/raw/uavscenes_official
+manifest_path: data/index/manifest_interval5.parquet
+scene_registry: data/index/scene_registry.csv
+scene_groups: data/index/scene_groups.yaml
+default_interval: interval5

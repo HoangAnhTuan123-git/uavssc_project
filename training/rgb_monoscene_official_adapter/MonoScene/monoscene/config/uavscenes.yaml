@@ -1,0 +1,44 @@
+# UAVScenes config for MonoScene transfer learning
+uav_preprocess_root: "/path/to/rgb_npz_root"
+uav_data_root: "/path/to/UAVScenes"
+uav_logdir: "./uav_logs"
+
+scene_filter: ""
+
+split_files:
+  train: ""
+  val: ""
+  test: ""
+load_pretrained: true
+pretrained_model_path: "trained_models/monoscene_kitti.ckpt"
+eval_checkpoint_path: "CHANGE_ME"
+
+project_scale: 2
+full_scene_size: [128, 128, 32]
+feature: 64
+n_relations: 4
+frustum_size: 4
+
+context_prior: true
+relation_loss: true
+fp_loss: true
+CE_ssc_loss: true
+sem_scal_loss: true
+geo_scal_loss: true
+
+project_1_2: true
+project_1_4: true
+project_1_8: true
+
+max_epochs: 30
+batch_size: 1
+n_gpus: 1
+num_workers_per_gpu: 4
+lr: 1.0e-4
+weight_decay: 1.0e-4
+exp_prefix: "uav_monoscene"
+run: 1
+
+train_ratio: 0.70
+val_ratio: 0.15
+test_ratio: 0.15
