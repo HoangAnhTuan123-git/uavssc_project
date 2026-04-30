@@ -12,6 +12,7 @@ What you still need to fill:
 - `data/raw/uavscenes_official/` with the extracted UAVScenes dataset
 - `data/external/pretrained/` with downloaded pretrained weights
 - method-specific paths in config files
+- link for dataset: https://drive.google.com/drive/folders/1HSJWc5qmIKLdpaS8w8pqrWch4F9MHIeN
 
 ## Recommended workflow
 
