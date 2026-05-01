@@ -12,8 +12,6 @@ __pycache__/
 Thumbs.db
 
 data/raw/uavscenes_official/*
-!data/raw/uavscenes_official/cmap.py
-!data/raw/uavscenes_official/calibration_results.py
 !data/raw/uavscenes_official/README_DATASET_PLACEHOLDER.md
 
 data/processed/cache/*

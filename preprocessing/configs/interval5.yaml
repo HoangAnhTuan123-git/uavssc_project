@@ -4,7 +4,7 @@ project:
 
 dataset:
   data_root: /path/to/UAVScenes
-  use_interval: 1
+  use_interval: 5
   camera_folder_hint: CAM
   lidar_folder_hint: LiDAR
   lidar_label_id_hint: label_id

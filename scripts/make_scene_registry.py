@@ -9,16 +9,44 @@ from typing import Dict, List, Optional, Tuple
 
 
 def parse_scene_run(name: str) -> Tuple[str, str]:
-    m = re.match(r"^(.*?)(\d+)$", name)
+    clean = re.sub(r"^interval\d+_", "", name, flags=re.IGNORECASE)
+    known = ["AMtown", "AMvalley", "HKairport", "HKisland"]
+    for phys in known:
+        if clean.lower().startswith(phys.lower()):
+            return phys, clean[len(phys):].lstrip("_")
+    m = re.match(r"^(.*?)(\d+)$", clean)
     if m:
         return m.group(1), m.group(2)
-    return name, ""
+    return clean, ""
 
 
-def find_scene_dirs(interval_cam_lidar_root: Path) -> List[Path]:
-    if not interval_cam_lidar_root.exists():
-        return []
-    return sorted([p for p in interval_cam_lidar_root.iterdir() if p.is_dir()])
+def find_scene_dirs(raw_root: Path, interval: str) -> List[Path]:
+    out: List[Path] = []
+    wrapper = raw_root / f"{interval}_CAM_LIDAR"
+    if wrapper.exists():
+        out.extend([p for p in wrapper.iterdir() if p.is_dir()])
+
+    # Also support extracted direct-run folders such as interval1_AMtown01.
+    aux_tokens = ["cam_label", "lidar_label", "terra_3dmap_pointcloud_mesh", "cam_lidar"]
+    for p in raw_root.iterdir() if raw_root.exists() else []:
+        if not p.is_dir():
+            continue
+        low = p.name.lower()
+        if not low.startswith(interval.lower() + "_"):
+            continue
+        if any(tok in low for tok in aux_tokens):
+            continue
+        if (p / "sampleinfos_interpolated.json").exists() or any(p.rglob("sampleinfos_interpolated.json")):
+            out.append(p)
+
+    seen = set()
+    uniq = []
+    for p in sorted(out):
+        rp = p.resolve()
+        if rp not in seen:
+            seen.add(rp)
+            uniq.append(p)
+    return uniq
 
 
 def find_child_folder(scene_dir: Path, keywords: List[str]) -> Optional[Path]:
@@ -35,6 +63,7 @@ def find_child_folder(scene_dir: Path, keywords: List[str]) -> Optional[Path]:
 
 
 def find_label_scene_root(raw_root: Path, interval: str, kind: str, scene_name: str) -> Optional[Path]:
+    clean_scene_name = re.sub(r"^interval\d+_", "", scene_name, flags=re.IGNORECASE)
     roots = [
         raw_root / f"{interval}_{kind}",
         raw_root / f"{interval}_{kind.upper()}",
@@ -42,9 +71,9 @@ def find_label_scene_root(raw_root: Path, interval: str, kind: str, scene_name: 
     ]
     for root in roots:
         if root.exists():
-            candidate = root / scene_name
-            if candidate.exists():
-                return candidate
+            for candidate in [root / scene_name, root / clean_scene_name]:
+                if candidate.exists():
+                    return candidate
     return None
 
 
@@ -67,8 +96,7 @@ def main() -> None:
 
     rows: List[Dict[str, str]] = []
     for interval in args.intervals:
-        cam_lidar_root = args.raw_root / f"{interval}_CAM_LIDAR"
-        for scene_dir in find_scene_dirs(cam_lidar_root):
+        for scene_dir in find_scene_dirs(args.raw_root, interval):
             scene_run = scene_dir.name
             physical_scene, run_id = parse_scene_run(scene_run)
 

@@ -2,7 +2,7 @@ raw_root: data/raw/uavscenes_official
 index_root: data/index
 processed_root: data/processed
 split_root: data/splits
-use_interval: 5
+use_interval: 1
 voxel:
   voxel_size_m: 2.0
   min_occ_votes: 1

@@ -10,6 +10,7 @@ from rich import print
 from tqdm import tqdm
 
 from uavssc.export_common import (
+    add_cam_label_metadata,
     build_dense_lidar_inputs,
     build_local_target,
     compute_local_box,
@@ -162,6 +163,8 @@ def main() -> None:
                 sample[f'projected_pix_{scale}'] = projected_pix.astype(np.int32)
                 sample[f'fov_mask_{scale}'] = fov_mask.astype(bool)
                 sample[f'pix_z_{scale}'] = pix_z.astype(np.float32)
+
+            add_cam_label_metadata(sample, row, cfg, img_shape_hw=(img_H, img_W))
 
             out_path = scene_out / f"{Path(row['img_path']).stem}.npz"
             np.savez_compressed(out_path, **sample)

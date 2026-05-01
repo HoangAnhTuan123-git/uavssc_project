@@ -1,5 +1,8 @@
 # UAV SSC Master Project Structure
 
+**Start here:** read `MASTER_INSTRUCTIONS.md`. That file contains the interval1 CAM-label workflow, GPU-template recommendation, dataset placement, setup/download scripts, preprocessing commands, expected outputs, and training commands.
+
+
 This repository skeleton combines the preprocessing and training phases for UAVScenes-based 3D Semantic Scene Completion.
 
 What is already included:

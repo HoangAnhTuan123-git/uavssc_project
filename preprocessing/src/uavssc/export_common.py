@@ -466,3 +466,56 @@ def build_dense_lidar_inputs(
         'lidar_sparse_counts': counts.astype(np.int32),
         'lidar_points_local_xyz': local_xyz_m.astype(np.float32),
     }
+
+
+def _cell_to_path_string(value) -> str | None:
+    """Return a clean path string from a pandas cell, or None for empty/NaN."""
+    if value is None:
+        return None
+    try:
+        if isinstance(value, float) and np.isnan(value):
+            return None
+    except Exception:
+        pass
+    s = str(value)
+    if not s or s.lower() in {'nan', 'none', '<na>'}:
+        return None
+    return s
+
+
+def add_cam_label_metadata(sample: dict, row, cfg: dict, img_shape_hw: tuple[int, int] | None = None) -> dict:
+    """Attach UAVScenes CAM_label metadata to an exported NPZ sample.
+
+    The new UAVScenes layout stores 2D semantic masks in sibling folders such as
+    interval1_CAM_label/label_id and interval1_CAM_label/label_color.  These masks
+    are not the 3D SSC target; they are paired by timestamp and are useful for
+    QC overlays or optional 2D auxiliary supervision.
+    """
+    cam_cfg = cfg.get('cam_label_export', {}) if isinstance(cfg, dict) else {}
+    save_paths = bool(cam_cfg.get('save_paths', True))
+    save_id_image = bool(cam_cfg.get('save_id_image', False))
+    save_rgb_image = bool(cam_cfg.get('save_rgb_image', False))
+
+    id_path = _cell_to_path_string(row.get('cam_label_id_path', None)) if hasattr(row, 'get') else None
+    rgb_path = _cell_to_path_string(row.get('cam_label_rgb_path', None)) if hasattr(row, 'get') else None
+
+    if save_paths:
+        sample['cam_label_id_path'] = np.array([id_path or ''])
+        sample['cam_label_rgb_path'] = np.array([rgb_path or ''])
+
+    if img_shape_hw is not None:
+        sample['image_shape_hw'] = np.asarray(img_shape_hw, dtype=np.int32)
+
+    if id_path and save_id_image and Path(id_path).exists():
+        from .io import read_cam_label_id_image
+        mask = read_cam_label_id_image(id_path)
+        sample['cam_label_id'] = mask.astype(np.uint16, copy=False)
+        sample['cam_label_shape_hw'] = np.asarray(mask.shape[:2], dtype=np.int32)
+
+    if rgb_path and save_rgb_image and Path(rgb_path).exists():
+        from .io import read_cam_label_rgb_image
+        rgb = read_cam_label_rgb_image(rgb_path)
+        sample['cam_label_rgb'] = rgb.astype(np.uint8, copy=False)
+        sample['cam_label_rgb_shape_hw'] = np.asarray(rgb.shape[:2], dtype=np.int32)
+
+    return sample

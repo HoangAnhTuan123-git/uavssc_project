@@ -10,6 +10,7 @@ from rich import print
 from tqdm import tqdm
 
 from uavssc.export_common import (
+    add_cam_label_metadata,
     build_local_target,
     compute_local_box,
     parse_matrix_cell,
@@ -145,6 +146,8 @@ def main() -> None:
                 )
                 sample['frustums_masks'] = frustums_masks.astype(bool)
                 sample['frustums_class_dists'] = frustums_class_dists.astype(np.int32)
+
+            add_cam_label_metadata(sample, row, cfg, img_shape_hw=(img_H, img_W))
 
             out_path = scene_out / f"{Path(row['img_path']).stem}.npz"
             np.savez_compressed(out_path, **sample)

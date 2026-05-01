@@ -1,6 +1,11 @@
 
 # UAVScenes multimodal preprocessing starter
 
+## Interval1 CAM-label update
+
+Use `../MASTER_INSTRUCTIONS.md` for the complete command sequence.  The current default config is now interval1.  The manifest and RGB/fusion exporters support the newer UAVScenes `interval1_CAM_label` folders with paired `label_id` and `label_color` PNG masks.  Exported RGB/fusion NPZ files store `cam_label_id_path` and `cam_label_rgb_path` by default, and `scripts/12_validate_cam_labels.py` checks image/mask timestamp and shape alignment.
+
+
 This bundle turns **UAVScenes** into three SSC-ready exports built on the same world-aligned target construction:
 
 - **RGB-only** export for **MonoScene / CGFormer / VoxFormer-style** training
@@ -32,7 +37,7 @@ This bundle patches several issues that matter for UAV SSC:
 - free-space ray-casting uses **all LiDAR returns**, not only semantically valid points
 - local crop export uses a **camera-focus / local-ground** anchor instead of blindly centering under the drone
 - a new `camera_forward_axis` option lets you override or auto-select the camera optical axis
-- `11_overlay_npz_alignment.py` lets you check whether exported voxel targets align with the RGB image
+- `11_overlay_npz_alignment.py` lets you check whether exported voxel targets align with the RGB image and the paired CAM label panel
 
 ## Recommended command order
 

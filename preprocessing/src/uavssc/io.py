@@ -32,10 +32,12 @@ class SampleRecord:
     lidar_path: str | None
     lidar_label_id_path: str | None
     lidar_label_rgb_path: str | None
-    T_world_cam: np.ndarray | None
-    T_world_lidar: np.ndarray | None
-    K: np.ndarray | None
-    dist: np.ndarray | None
+    cam_label_id_path: str | None = None
+    cam_label_rgb_path: str | None = None
+    T_world_cam: np.ndarray | None = None
+    T_world_lidar: np.ndarray | None = None
+    K: np.ndarray | None = None
+    dist: np.ndarray | None = None
 
 
 COMMON_K_KEYS = [
@@ -336,8 +338,19 @@ def discover_label_files(scene_root: str | Path, mode: str) -> list[Path]:
 
 
 def scene_prefix(scene_name: str) -> str:
-    m = re.match(r'([A-Za-z_]+)', scene_name)
-    return m.group(1) if m else scene_name
+    """Return the physical-scene prefix used by calibration_results.py.
+
+    Works for both official wrapper names such as AMtown01 and extracted names
+    such as interval1_AMtown01 or interval1_HKairport_GNSS01.
+    """
+    name = re.sub(r'^interval\d+_', '', str(scene_name), flags=re.IGNORECASE)
+    known = ['AMtown', 'AMvalley', 'HKairport', 'HKisland']
+    low = name.lower()
+    for k in known:
+        if k.lower() in low:
+            return k
+    m = re.match(r'([A-Za-z]+)', name)
+    return m.group(1) if m else name
 
 
 
@@ -537,3 +550,238 @@ def discover_label_files(
             except Exception:
                 continue
     return sorted(set(out))
+
+
+# =========================
+# Camera semantic label helpers (UAVScenes interval1/interval5 CAM_label)
+# =========================
+
+_CAM_LABEL_IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.tif', '.tiff'}
+
+
+def _read_cv_image_any(path: str | Path) -> np.ndarray:
+    arr = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+    if arr is None:
+        raise FileNotFoundError(f'Failed to read image/mask: {path}')
+    return arr
+
+
+def _bgr_or_bgra_to_rgb(arr: np.ndarray) -> np.ndarray:
+    arr = np.asarray(arr)
+    if arr.ndim == 2:
+        return np.stack([arr, arr, arr], axis=-1)
+    if arr.ndim == 3 and arr.shape[2] == 4:
+        arr = arr[:, :, :3]
+    if arr.ndim == 3 and arr.shape[2] == 3:
+        return cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
+    raise ValueError(f'Unsupported image shape for RGB conversion: {arr.shape}')
+
+
+def _is_grayscale_like(arr: np.ndarray) -> bool:
+    arr = np.asarray(arr)
+    if arr.ndim == 2:
+        return True
+    if arr.ndim == 3 and arr.shape[2] in (3, 4):
+        bgr = arr[:, :, :3]
+        return bool(np.array_equal(bgr[:, :, 0], bgr[:, :, 1]) and np.array_equal(bgr[:, :, 1], bgr[:, :, 2]))
+    return False
+
+
+def _looks_like_id_mask(path: str | Path, max_unique: int = 512) -> bool:
+    try:
+        arr = _read_cv_image_any(path)
+        if not _is_grayscale_like(arr):
+            return False
+        if arr.ndim == 3:
+            arr = arr[:, :, 0]
+        vals = np.unique(arr)
+        return len(vals) <= max_unique and int(vals.max()) <= 255
+    except Exception:
+        return False
+
+
+def _rgb_to_raw_id_exact_or_nearest(rgb: np.ndarray, max_color_distance: float = 3.0) -> np.ndarray:
+    """Convert a color semantic mask to raw UAVScenes IDs.
+
+    Exact cmap colors are preferred.  A small nearest-color tolerance handles masks
+    that were saved with antialiased edges or alpha-compositing.  Pixels farther
+    than max_color_distance from every official color become 255/ignore.
+    """
+    from .constants import RAW_CMAP, IGNORE_SEMANTIC_ID
+
+    rgb = np.asarray(rgb, dtype=np.uint8)
+    h, w, _ = rgb.shape
+    flat = rgb.reshape(-1, 3)
+    uniq, inv = np.unique(flat, axis=0, return_inverse=True)
+    cmap_ids = np.asarray(sorted(RAW_CMAP.keys()), dtype=np.int32)
+    cmap_rgb = np.asarray([RAW_CMAP[int(i)]['RGB'] for i in cmap_ids], dtype=np.float32)
+    out_uniq = np.full((len(uniq),), IGNORE_SEMANTIC_ID, dtype=np.uint16)
+    for i, color in enumerate(uniq.astype(np.float32)):
+        d = np.linalg.norm(cmap_rgb - color[None, :], axis=1)
+        j = int(np.argmin(d))
+        if float(d[j]) <= max_color_distance:
+            out_uniq[i] = np.uint16(cmap_ids[j])
+    return out_uniq[inv].reshape(h, w).astype(np.uint16)
+
+
+def read_cam_label_id_image(path: str | Path, color_fallback: bool = True) -> np.ndarray:
+    """Read a UAVScenes CAM_label id PNG.
+
+    Expected id masks are grayscale/RGB-grayscale images where pixel value is the
+    raw class id.  If a color CAM label is supplied and color_fallback=True, the
+    official color map is used to recover ids when possible.
+    """
+    arr = _read_cv_image_any(path)
+    if arr.ndim == 2:
+        return arr.astype(np.uint16, copy=False)
+    if arr.ndim == 3:
+        if arr.shape[2] == 4:
+            arr = arr[:, :, :3]
+        if _is_grayscale_like(arr):
+            return arr[:, :, 0].astype(np.uint16, copy=False)
+        if color_fallback:
+            rgb = cv2.cvtColor(arr[:, :, :3], cv2.COLOR_BGR2RGB)
+            return _rgb_to_raw_id_exact_or_nearest(rgb)
+    raise ValueError(f'Unsupported CAM label-id image shape: {arr.shape} at {path}')
+
+
+def read_cam_label_rgb_image(path: str | Path) -> np.ndarray:
+    """Read a UAVScenes CAM_label color PNG as RGB uint8 HxWx3."""
+    return _bgr_or_bgra_to_rgb(_read_cv_image_any(path)).astype(np.uint8, copy=False)
+
+
+def discover_cam_label_files(
+    scene_root: str | Path,
+    mode: str,
+    interval: int | None = None,
+    cam_label_folder_hint: str = 'CAM_label',
+    cam_label_id_hint: str = 'label_id',
+    cam_label_rgb_hint: str = 'label_color',
+) -> list[Path]:
+    """Discover camera semantic label PNGs for the new UAVScenes layout.
+
+    Handles common folder patterns such as:
+    - interval1_CAM_label/.../label_id/*.png
+    - interval1_CAM_label/.../label_color/*.png
+    - interval1_CAM_label_id/*.png
+    - interval1_CAM_label_color/*.png
+
+    The returned files are still matched by timestamp in manifest.py.
+    """
+    assert mode in {'id', 'rgb'}
+    scene_root = Path(scene_root)
+    interval_token = None if interval is None else f'interval{int(interval)}'
+    label_hint_tokens = [tok for tok in re.split(r'[_\s\-]+', cam_label_folder_hint.lower()) if tok]
+    id_tokens = [tok for tok in re.split(r'[_\s\-]+', cam_label_id_hint.lower()) if tok]
+    rgb_tokens = [tok for tok in re.split(r'[_\s\-]+', cam_label_rgb_hint.lower()) if tok]
+
+    candidates: list[Path] = []
+    for p in scene_root.rglob('*'):
+        if not p.is_file() or p.suffix.lower() not in _CAM_LABEL_IMAGE_EXTS:
+            continue
+        s = p.as_posix().lower()
+        name = p.name.lower()
+        if 'terra_3dmap_pointcloud_mesh' in s or '.git' in s:
+            continue
+        if interval_token is not None and interval_token not in s:
+            continue
+        # Require camera-label semantics; do not accept ordinary RGB images or LiDAR labels.
+        if 'label' not in s or 'cam' not in s or 'lidar' in s:
+            continue
+        if label_hint_tokens and not all(tok in s for tok in label_hint_tokens if tok not in {'cam', 'label'}):
+            # still allow generic CAM + label paths even when underscore/spacing differs
+            pass
+        candidates.append(p)
+
+    path_selected: list[Path] = []
+    if mode == 'id':
+        for p in candidates:
+            s = p.as_posix().lower()
+            has_id = ('id' in s) or all(tok in s for tok in id_tokens)
+            has_rgb = ('color' in s) or ('rgb' in s) or all(tok in s for tok in rgb_tokens)
+            if has_id and not has_rgb:
+                path_selected.append(p)
+        if not path_selected:
+            path_selected = [p for p in candidates if _looks_like_id_mask(p)]
+    else:
+        for p in candidates:
+            s = p.as_posix().lower()
+            has_rgb = ('color' in s) or ('rgb' in s) or all(tok in s for tok in rgb_tokens)
+            has_id = ('id' in s) or all(tok in s for tok in id_tokens)
+            if has_rgb and not has_id:
+                path_selected.append(p)
+        if not path_selected:
+            path_selected = [p for p in candidates if not _looks_like_id_mask(p)]
+
+    return sorted(set(path_selected))
+
+
+# Override scene discovery with label-folder-aware logic for the official interval1/interval5 layout.
+def discover_scene_dirs(data_root: str | Path) -> list[Path]:
+    data_root = Path(data_root)
+
+    def is_aux_dir(p: Path) -> bool:
+        n = p.name.lower()
+        return (
+            n.startswith('__pycache__') or
+            n.startswith('_downloads') or
+            n in {'downloads'} or
+            'terra_3dmap_pointcloud_mesh' in n or
+            'cam_label' in n or
+            'lidar_label' in n or
+            (('label' in n) and ('cam_lidar' not in n))
+        )
+
+    def has_aux_ancestor(scene_dir: Path) -> bool:
+        for part in [scene_dir, *scene_dir.parents]:
+            if part == data_root.parent:
+                break
+            if is_aux_dir(part):
+                return True
+        return False
+
+    if (data_root / 'sampleinfos_interpolated.json').exists():
+        return [data_root]
+
+    out: list[Path] = []
+    for p in sorted([x for x in data_root.iterdir() if x.is_dir()]):
+        if is_aux_dir(p):
+            continue
+        if (p / 'sampleinfos_interpolated.json').exists():
+            out.append(p)
+            continue
+        # Official zips may contain a wrapper directory such as interval1_CAM_LIDAR.
+        for sampleinfo in p.rglob('sampleinfos_interpolated.json'):
+            scene_dir = sampleinfo.parent
+            if not has_aux_ancestor(scene_dir):
+                out.append(scene_dir)
+
+    # Deduplicate while preserving order.
+    seen: set[Path] = set()
+    uniq: list[Path] = []
+    for p in out:
+        rp = p.resolve()
+        if rp not in seen:
+            seen.add(rp)
+            uniq.append(p)
+    return uniq
+
+
+# Override: support both dual timestamp labels and single-timestamp label filenames.
+def label_file_dual_timestamp_info(paths: list[Path]) -> list[dict[str, Any]]:
+    from .utils import timestamp_from_stem
+
+    info = []
+    for p in paths:
+        img_ts, lidar_ts = parse_dual_timestamp_label_stem(p)
+        if img_ts is None:
+            single_ts = timestamp_from_stem(p)
+            img_ts = single_ts
+            lidar_ts = single_ts
+        info.append({
+            'path': p,
+            'img_ts': img_ts,
+            'lidar_ts': lidar_ts,
+            'stem': p.stem,
+        })
+    return info

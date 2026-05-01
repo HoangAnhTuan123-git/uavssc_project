@@ -57,6 +57,22 @@ def _light_color_jitter(img: Image.Image) -> Image.Image:
     return img
 
 
+def _optional_cam_label_tensor(arr: np.lib.npyio.NpzFile, data_root: str | None, image_size: Tuple[int, int]):
+    """Load paired UAVScenes CAM_label id mask when an exported NPZ stores its path."""
+    if "cam_label_id_path" not in arr.files:
+        return None, ""
+    raw_path = npz_string(arr["cam_label_id_path"])
+    if not raw_path or raw_path.lower() in {"nan", "none", "<na>"}:
+        return None, ""
+    label_path = resolve_uav_path(raw_path, data_root)
+    if not os.path.exists(label_path):
+        return None, label_path
+    mask = Image.open(label_path).convert("L")
+    new_h, new_w = image_size
+    mask = mask.resize((new_w, new_h), Image.NEAREST)
+    return torch.from_numpy(np.asarray(mask, dtype=np.int64)), label_path
+
+
 class BaseNPZDataset(Dataset):
     def __init__(
         self,
@@ -98,11 +114,13 @@ class RGBSSCNPZDataset(BaseNPZDataset):
         image_size: Tuple[int, int] = (640, 640),
         color_jitter: bool = False,
         sample_list_path: str | Path | None = None,
+        return_cam_label: bool = False,
     ):
         super().__init__(preprocess_root, split, split_ratios, scene_filter, sample_list_path)
         self.data_root = data_root
         self.image_size = tuple(image_size)
         self.use_jitter = color_jitter
+        self.return_cam_label = return_cam_label
 
     def __getitem__(self, index):
         npz_path = self.samples[index]
@@ -141,6 +159,15 @@ class RGBSSCNPZDataset(BaseNPZDataset):
                 out[f"projected_pix_{scale}"] = torch.from_numpy(uv)
                 out[f"fov_mask_{scale}"] = torch.from_numpy(arr[f"fov_mask_{scale}"].astype(bool))
                 out[f"pix_z_{scale}"] = torch.from_numpy(arr[f"pix_z_{scale}"].astype(np.float32))
+
+        if "cam_label_id_path" in arr.files:
+            raw_cam_label_path = npz_string(arr["cam_label_id_path"])
+            out["cam_label_id_path"] = resolve_uav_path(raw_cam_label_path, self.data_root) if raw_cam_label_path else ""
+        if self.return_cam_label:
+            cam_label, cam_label_path = _optional_cam_label_tensor(arr, self.data_root, self.image_size)
+            if cam_label is not None:
+                out["cam_label_id"] = cam_label
+                out["cam_label_id_path"] = cam_label_path
         return out
 
 
@@ -182,11 +209,13 @@ class FusionSSCNPZDataset(BaseNPZDataset):
         image_size: Tuple[int, int] = (640, 640),
         color_jitter: bool = False,
         sample_list_path: str | Path | None = None,
+        return_cam_label: bool = False,
     ):
         super().__init__(preprocess_root, split, split_ratios, scene_filter, sample_list_path)
         self.data_root = data_root
         self.image_size = tuple(image_size)
         self.use_jitter = color_jitter
+        self.return_cam_label = return_cam_label
 
     def __getitem__(self, index):
         npz_path = self.samples[index]
@@ -224,4 +253,13 @@ class FusionSSCNPZDataset(BaseNPZDataset):
                 out[f"projected_pix_{scale}"] = torch.from_numpy(uv)
                 out[f"fov_mask_{scale}"] = torch.from_numpy(arr[f"fov_mask_{scale}"].astype(bool))
                 out[f"pix_z_{scale}"] = torch.from_numpy(arr[f"pix_z_{scale}"].astype(np.float32))
+
+        if "cam_label_id_path" in arr.files:
+            raw_cam_label_path = npz_string(arr["cam_label_id_path"])
+            out["cam_label_id_path"] = resolve_uav_path(raw_cam_label_path, self.data_root) if raw_cam_label_path else ""
+        if self.return_cam_label:
+            cam_label, cam_label_path = _optional_cam_label_tensor(arr, self.data_root, self.image_size)
+            if cam_label is not None:
+                out["cam_label_id"] = cam_label
+                out["cam_label_id_path"] = cam_label_path
         return out
