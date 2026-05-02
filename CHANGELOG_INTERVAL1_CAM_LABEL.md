@@ -53,3 +53,5 @@
 
 - CAM labels are **not** treated as the 3D SSC target. They are paired metadata/optional auxiliary supervision. The 3D SSC target is still the world-aligned local voxel grid produced from LiDAR labels, poses, calibration, free-space ray casting, and semantic voxel fusion.
 - Exported `.npz` files must be checked visually. The projected occupied voxels should align with the paired RGB image and CAM label panel before training.
+
+See also `CHANGELOG_INTERVAL5.md` for the later interval5-first workflow update.

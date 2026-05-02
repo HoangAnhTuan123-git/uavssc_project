@@ -12,6 +12,10 @@ dataset:
   cam_label_folder_hint: CAM_label
   cam_label_id_hint: label_id
   cam_label_rgb_hint: label_color
+  # Optional but recommended for official extracted layout. These are resolved
+  # against each scene folder and its parent folders.
+  cam_label_root: interval5_CAM_label
+  lidar_label_root: interval5_LIDAR_label
   max_pair_delta_s: 0.25
   max_cam_label_delta_s: 0.05
   sampleinfos_json_name: sampleinfos_interpolated.json

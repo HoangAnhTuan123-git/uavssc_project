@@ -487,7 +487,7 @@ def add_cam_label_metadata(sample: dict, row, cfg: dict, img_shape_hw: tuple[int
     """Attach UAVScenes CAM_label metadata to an exported NPZ sample.
 
     The new UAVScenes layout stores 2D semantic masks in sibling folders such as
-    interval1_CAM_label/label_id and interval1_CAM_label/label_color.  These masks
+    interval1/interval5 CAM_label label_id and label_color.  These masks
     are not the 3D SSC target; they are paired by timestamp and are useful for
     QC overlays or optional 2D auxiliary supervision.
     """
