@@ -1,6 +1,23 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from contextlib import nullcontext
+
+
+def _bce_to_one_autocast_safe(prob, eps=1e-6):
+    """
+    MonoScene semantic/geometric scaling losses call BCE on probabilities
+    produced by softmax. torch.cuda.amp autocast forbids binary_cross_entropy
+    because BCE on probabilities is numerically fragile in fp16.
+
+    Keep the original MonoScene loss behavior, but run this tiny scalar BCE
+    computation in float32 outside autocast so mixed-precision training works.
+    """
+    ctx = torch.cuda.amp.autocast(enabled=False) if torch.cuda.is_available() else nullcontext()
+    with ctx:
+        prob32 = prob.float().clamp(min=eps, max=1.0 - eps)
+        target32 = torch.ones_like(prob32)
+        return F.binary_cross_entropy(prob32, target32)
 
 
 def KL_sep(p, target):
@@ -34,9 +51,9 @@ def geo_scal_loss(pred, ssc_target):
     recall = intersection / nonempty_target.sum()
     spec = ((1 - nonempty_target) * (empty_probs)).sum() / (1 - nonempty_target).sum()
     return (
-        F.binary_cross_entropy(precision, torch.ones_like(precision))
-        + F.binary_cross_entropy(recall, torch.ones_like(recall))
-        + F.binary_cross_entropy(spec, torch.ones_like(spec))
+        _bce_to_one_autocast_safe(precision)
+        + _bce_to_one_autocast_safe(recall)
+        + _bce_to_one_autocast_safe(spec)
     )
 
 
@@ -67,21 +84,17 @@ def sem_scal_loss(pred, ssc_target):
             loss_class = 0
             if torch.sum(p) > 0:
                 precision = nominator / (torch.sum(p))
-                loss_precision = F.binary_cross_entropy(
-                    precision, torch.ones_like(precision)
-                )
+                loss_precision = _bce_to_one_autocast_safe(precision)
                 loss_class += loss_precision
             if torch.sum(completion_target) > 0:
                 recall = nominator / (torch.sum(completion_target))
-                loss_recall = F.binary_cross_entropy(recall, torch.ones_like(recall))
+                loss_recall = _bce_to_one_autocast_safe(recall)
                 loss_class += loss_recall
             if torch.sum(1 - completion_target) > 0:
                 specificity = torch.sum((1 - p) * (1 - completion_target)) / (
                     torch.sum(1 - completion_target)
                 )
-                loss_specificity = F.binary_cross_entropy(
-                    specificity, torch.ones_like(specificity)
-                )
+                loss_specificity = _bce_to_one_autocast_safe(specificity)
                 loss_class += loss_specificity
             loss += loss_class
     return loss / count

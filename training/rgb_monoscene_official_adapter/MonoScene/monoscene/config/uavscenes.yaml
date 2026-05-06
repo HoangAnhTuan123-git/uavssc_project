@@ -13,27 +13,40 @@ load_pretrained: true
 pretrained_model_path: "trained_models/monoscene_kitti.ckpt"
 eval_checkpoint_path: "CHANGE_ME"
 
+# Training image size as [height, width].
+# Original UAVScenes frames are 2048x2448; that is too large for MonoScene on 24GB GPUs.
+# This value is applied online by the DataLoader, so existing NPZ files do not need to be rebuilt.
+input_image_hw: [640, 768]
+
+# RGB backbone. B7 is the original MonoScene setting but is too heavy for UAVScenes on 24GB GPUs.
+# Recommended order: b0 for debugging/stable training, then b4 if memory allows.
+rgb_backbone: "tf_efficientnet_b0_ns"
+rgb_pretrained: true
+freeze_rgb_encoder: false
+
 project_scale: 2
 full_scene_size: [128, 128, 32]
-feature: 64
+feature: 32
 n_relations: 4
 frustum_size: 4
 
-context_prior: true
-relation_loss: true
-fp_loss: true
+context_prior: false
+relation_loss: false
+fp_loss: false
 CE_ssc_loss: true
 sem_scal_loss: true
 geo_scal_loss: true
 
-project_1_2: true
-project_1_4: true
-project_1_8: true
+project_1_2: false
+project_1_4: false
+project_1_8: false
 
 max_epochs: 30
 batch_size: 1
 n_gpus: 1
 num_workers_per_gpu: 4
+# Use AMP to reduce GPU memory. Set to 32 if your PyTorch Lightning version has AMP issues.
+precision: 16
 lr: 1.0e-4
 weight_decay: 1.0e-4
 exp_prefix: "uav_monoscene"

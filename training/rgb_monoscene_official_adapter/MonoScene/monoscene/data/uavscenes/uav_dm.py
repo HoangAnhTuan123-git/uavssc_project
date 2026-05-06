@@ -18,6 +18,7 @@ class UAVScenesDataModule(pl.LightningDataModule):
         scene_filter=None,
         data_root=None,
         split_files=None,
+        input_image_hw=None,
     ):
         super(UAVScenesDataModule, self).__init__()
         self.preprocess_root = preprocess_root
@@ -29,6 +30,7 @@ class UAVScenesDataModule(pl.LightningDataModule):
         self.scene_filter = scene_filter
         self.data_root = data_root
         self.split_files = split_files or {}
+        self.input_image_hw = input_image_hw
 
     def setup(self, stage=None):
         common = dict(
@@ -38,6 +40,7 @@ class UAVScenesDataModule(pl.LightningDataModule):
             split_ratios=self.split_ratios,
             scene_filter=self.scene_filter,
             data_root=self.data_root,
+            input_image_hw=self.input_image_hw,
         )
         self.train_ds = UAVScenesDataset(
             split="train",

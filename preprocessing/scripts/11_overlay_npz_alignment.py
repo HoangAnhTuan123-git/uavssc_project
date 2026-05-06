@@ -25,6 +25,33 @@ def _read_optional_path(data, key: str) -> str | None:
     return s
 
 
+
+
+def _get_hw(data, key: str) -> tuple[int, int] | None:
+    if key not in data:
+        return None
+    arr = np.asarray(data[key]).reshape(-1)
+    if arr.size < 2:
+        return None
+    return int(arr[0]), int(arr[1])
+
+
+def _resize_canvas_to_npz_projection(canvas: np.ndarray, data) -> np.ndarray:
+    """Resize RGB/CAM-label panels to the image size used by projected_pix_*.
+
+    Old NPZ files may store full-resolution projections. New resized NPZ files
+    store projection_image_shape_hw/image_shape_hw. The overlay must draw on the
+    same 2D lattice used by projected_pix_*; otherwise the visualization looks
+    shifted/scaled even when geometry is correct.
+    """
+    hw = _get_hw(data, 'projection_image_shape_hw') or _get_hw(data, 'image_shape_hw')
+    if hw is None:
+        return canvas
+    h, w = hw
+    if h > 0 and w > 0 and canvas.shape[:2] != (h, w):
+        return cv2.resize(canvas, (w, h), interpolation=cv2.INTER_AREA)
+    return canvas
+
 def _draw_projected_voxels(canvas: np.ndarray, target: np.ndarray, uv: np.ndarray, fov: np.ndarray, pix_z: np.ndarray, max_points: int) -> int:
     good = (target != 255) & (target != 0) & fov & (pix_z > 0)
     idx = np.where(good)[0]
@@ -56,6 +83,7 @@ def overlay_one(npz_path: Path, out_path: Path, max_points: int = 30000, side_by
     img = cv2.imread(img_path, cv2.IMREAD_COLOR)
     if img is None:
         return False
+    img = _resize_canvas_to_npz_projection(img, data)
 
     target = data['target'].reshape(-1)
     uv = data['projected_pix_1']
@@ -75,6 +103,7 @@ def overlay_one(npz_path: Path, out_path: Path, max_points: int = 30000, side_by
         if cam_label_path:
             label = cv2.imread(cam_label_path, cv2.IMREAD_COLOR)
             if label is not None:
+                label = _resize_canvas_to_npz_projection(label, data)
                 if label.shape[:2] != overlay_img.shape[:2]:
                     label = cv2.resize(label, (overlay_img.shape[1], overlay_img.shape[0]), interpolation=cv2.INTER_NEAREST)
                 label_overlay = label.copy()

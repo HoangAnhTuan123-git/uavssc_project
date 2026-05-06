@@ -20,6 +20,7 @@ class UAVScenesDataset(Dataset):
         scene_filter=None,
         data_root=None,
         sample_list_path=None,
+        input_image_hw=None,
     ):
         super(UAVScenesDataset, self).__init__()
         assert split in ["train", "val", "test"]
@@ -32,6 +33,7 @@ class UAVScenesDataset(Dataset):
         self.scene_filter = scene_filter
         self.data_root = data_root or os.environ.get("UAVSSC_DATA_ROOT", None)
         self.sample_list_path = sample_list_path
+        self.input_image_hw = self._normalize_hw(input_image_hw)
 
         self.color_jitter = transforms.ColorJitter(*color_jitter) if color_jitter else None
         self.normalize_rgb = transforms.Compose(
@@ -73,6 +75,51 @@ class UAVScenesDataset(Dataset):
         if isinstance(value, bytes):
             value = value.decode("utf-8")
         return str(value)
+
+    @staticmethod
+    def _normalize_hw(value):
+        if value is None:
+            return None
+        if isinstance(value, np.ndarray):
+            if value.size < 2:
+                return None
+            flat = value.reshape(-1)
+            return int(flat[0]), int(flat[1])
+        if isinstance(value, str):
+            txt = value.strip()
+            if not txt:
+                return None
+            txt = txt.replace("[", "").replace("]", "").replace("x", ",")
+            parts = [p.strip() for p in txt.split(",") if p.strip()]
+            if len(parts) < 2:
+                return None
+            return int(float(parts[0])), int(float(parts[1]))
+        if isinstance(value, (list, tuple)) and len(value) >= 2:
+            return int(value[0]), int(value[1])
+        return None
+
+    @classmethod
+    def _npz_hw(cls, arr, key):
+        if key not in arr.files:
+            return None
+        return cls._normalize_hw(arr[key])
+
+    @classmethod
+    def _projection_hw(cls, arr, fallback_hw):
+        return (
+            cls._npz_hw(arr, "projection_image_shape_hw")
+            or cls._npz_hw(arr, "image_shape_hw")
+            or fallback_hw
+        )
+
+    @staticmethod
+    def _scale_cam_k(K, sx, sy):
+        K = K.astype(np.float32).copy()
+        K[0, 0] *= float(sx)
+        K[0, 2] *= float(sx)
+        K[1, 1] *= float(sy)
+        K[1, 2] *= float(sy)
+        return K
 
     def _resolve_img_path(self, img_path):
         img_path = img_path.replace("\\", "/")
@@ -190,11 +237,12 @@ class UAVScenesDataset(Dataset):
         img_path = self._normalize_path_string(self._load_npz_string(arr["img_path"]))
         img_path = self._resolve_img_path(img_path)
 
+        orig_projection_hw = self._projection_hw(arr, fallback_hw=None)
+
         data = {
             "frame_id": frame_id,
             "sequence": scene,
             "img_path": img_path,
-            "cam_k": arr["cam_k"].astype(np.float32),
             "cam_E": arr["cam_E"].astype(np.float32),
             "target": arr["target"].astype(np.uint8),
             "CP_mega_matrix": arr["CP_mega_matrix"].astype(np.uint8),
@@ -206,11 +254,6 @@ class UAVScenesDataset(Dataset):
                 scale_3ds.append(int(k.split("_")[-1]))
         scale_3ds = sorted(scale_3ds)
         data["scale_3ds"] = scale_3ds
-
-        for scale in scale_3ds:
-            data["projected_pix_{}".format(scale)] = arr["projected_pix_{}".format(scale)].astype(np.int32)
-            data["fov_mask_{}".format(scale)] = arr["fov_mask_{}".format(scale)].astype(bool)
-            data["pix_z_{}".format(scale)] = arr["pix_z_{}".format(scale)].astype(np.float32)
 
         if "frustums_masks" in arr.files:
             data["frustums_masks"] = arr["frustums_masks"].astype(bool)
@@ -227,10 +270,39 @@ class UAVScenesDataset(Dataset):
                 "Image path inside npz does not exist: {} (from {})".format(img_path, npz_path)
             )
 
-        img = Image.open(img_path).convert("RGB")
+        img_pil = Image.open(img_path).convert("RGB")
+        orig_w, orig_h = img_pil.size
+        if orig_projection_hw is None:
+            orig_projection_hw = (orig_h, orig_w)
+
+        target_hw = self.input_image_hw or self._npz_hw(arr, "image_shape_hw") or orig_projection_hw
+        target_h, target_w = int(target_hw[0]), int(target_hw[1])
+        proj_h, proj_w = int(orig_projection_hw[0]), int(orig_projection_hw[1])
+        if target_h <= 0 or target_w <= 0:
+            raise ValueError("Invalid input image size: {}".format(target_hw))
+
+        sx = float(target_w) / float(proj_w)
+        sy = float(target_h) / float(proj_h)
+
+        for scale in scale_3ds:
+            key = "projected_pix_{}".format(scale)
+            uv = arr[key].astype(np.float32).copy()
+            uv[:, 0] *= sx
+            uv[:, 1] *= sy
+            uv = np.rint(uv).astype(np.int32)
+            data[key] = uv
+            data["fov_mask_{}".format(scale)] = arr["fov_mask_{}".format(scale)].astype(bool)
+            data["pix_z_{}".format(scale)] = arr["pix_z_{}".format(scale)].astype(np.float32)
+
+        data["cam_k"] = self._scale_cam_k(arr["cam_k"].astype(np.float32), sx, sy)
+        data["image_shape_hw"] = np.asarray([target_h, target_w], dtype=np.int32)
+        data["projection_shape_hw"] = np.asarray([proj_h, proj_w], dtype=np.int32)
+
+        if img_pil.size != (target_w, target_h):
+            img_pil = img_pil.resize((target_w, target_h), Image.BILINEAR)
         if self.color_jitter is not None:
-            img = self.color_jitter(img)
-        img = np.array(img, dtype=np.float32, copy=False) / 255.0
+            img_pil = self.color_jitter(img_pil)
+        img = np.array(img_pil, dtype=np.float32, copy=False) / 255.0
 
         if np.random.rand() < self.fliplr:
             img = np.ascontiguousarray(np.fliplr(img))

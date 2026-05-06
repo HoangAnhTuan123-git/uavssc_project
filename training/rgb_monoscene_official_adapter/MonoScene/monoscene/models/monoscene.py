@@ -34,6 +34,9 @@ class MonoScene(pl.LightningModule):
         sem_scal_loss=True,
         lr=1e-4,
         weight_decay=1e-4,
+        rgb_backbone="tf_efficientnet_b0_ns",
+        rgb_pretrained=True,
+        freeze_rgb_encoder=False,
     ):
         super().__init__()
 
@@ -79,7 +82,18 @@ class MonoScene(pl.LightningModule):
                 full_scene_size=full_scene_size,
                 context_prior=context_prior,
             )
-        self.net_rgb = UNet2D.build(out_feature=feature, use_decoder=True)
+        self.rgb_backbone = rgb_backbone
+        self.net_rgb = UNet2D.build(
+            out_feature=feature,
+            use_decoder=True,
+            backbone_name=rgb_backbone,
+            pretrained=rgb_pretrained,
+        )
+
+        if freeze_rgb_encoder:
+            print("Freezing RGB encoder parameters for memory/debug training.")
+            for p in self.net_rgb.encoder.parameters():
+                p.requires_grad = False
 
         # log hyperparameters
         self.save_hyperparameters()

@@ -73,6 +73,21 @@ def _optional_cam_label_tensor(arr: np.lib.npyio.NpzFile, data_root: str | None,
     return torch.from_numpy(np.asarray(mask, dtype=np.int64)), label_path
 
 
+def _npz_hw(arr: np.lib.npyio.NpzFile, key: str):
+    if key not in arr.files:
+        return None
+    value = arr[key]
+    if isinstance(value, np.ndarray):
+        flat = value.reshape(-1)
+        if flat.size >= 2:
+            return int(flat[0]), int(flat[1])
+    return None
+
+
+def _projection_hw(arr: np.lib.npyio.NpzFile, fallback_hw: Tuple[int, int]):
+    return _npz_hw(arr, "projection_image_shape_hw") or _npz_hw(arr, "image_shape_hw") or fallback_hw
+
+
 class BaseNPZDataset(Dataset):
     def __init__(
         self,
@@ -148,12 +163,13 @@ class RGBSSCNPZDataset(BaseNPZDataset):
             "img_path": img_path,
             "npz_path": str(npz_path),
         }
-        sx = float(new_w) / float(orig_w)
-        sy = float(new_h) / float(orig_h)
+        proj_h, proj_w = _projection_hw(arr, fallback_hw=(orig_h, orig_w))
+        sx = float(new_w) / float(proj_w)
+        sy = float(new_h) / float(proj_h)
         for name in arr.files:
             if name.startswith("projected_pix_"):
                 scale = name.split("_")[-1]
-                uv = arr[name].astype(np.float32)
+                uv = arr[name].astype(np.float32).copy()
                 uv[:, 0] *= sx
                 uv[:, 1] *= sy
                 out[f"projected_pix_{scale}"] = torch.from_numpy(uv)
@@ -242,12 +258,13 @@ class FusionSSCNPZDataset(BaseNPZDataset):
             "img_path": img_path,
             "npz_path": str(npz_path),
         }
-        sx = float(new_w) / float(orig_w)
-        sy = float(new_h) / float(orig_h)
+        proj_h, proj_w = _projection_hw(arr, fallback_hw=(orig_h, orig_w))
+        sx = float(new_w) / float(proj_w)
+        sy = float(new_h) / float(proj_h)
         for name in arr.files:
             if name.startswith("projected_pix_"):
                 scale = name.split("_")[-1]
-                uv = arr[name].astype(np.float32)
+                uv = arr[name].astype(np.float32).copy()
                 uv[:, 0] *= sx
                 uv[:, 1] *= sy
                 out[f"projected_pix_{scale}"] = torch.from_numpy(uv)

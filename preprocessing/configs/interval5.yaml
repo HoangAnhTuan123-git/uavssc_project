@@ -72,6 +72,14 @@ training_taxonomy:
     18: 15
     19: 16
 
+# Image lattice used for RGB projection tensors and optional overlays.
+# Original UAVScenes images are 2048x2448. 640x768 is safe for RTX 4090 24GB.
+# If you already exported NPZ files, you can skip re-export and let the MonoScene
+# DataLoader resize online via input_image_hw in monoscene/config/uavscenes.yaml.
+image_export:
+  enabled: true
+  resize_hw: [640, 768]
+
 monoscene:
   n_classes: 17
   project_scales: [1, 2]

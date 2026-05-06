@@ -89,6 +89,7 @@ def main(config: DictConfig):
         scene_filter=scene_filter,
         data_root=getattr(config, "uav_data_root", None),
         split_files=split_files,
+        input_image_hw=getattr(config, "input_image_hw", None),
     )
     data_module.setup()
 
@@ -138,6 +139,9 @@ def main(config: DictConfig):
         lr=float(config.lr),
         weight_decay=float(config.weight_decay),
         class_weights=class_weights,
+        rgb_backbone=getattr(config, "rgb_backbone", "tf_efficientnet_b0_ns"),
+        rgb_pretrained=bool(getattr(config, "rgb_pretrained", True)),
+        freeze_rgb_encoder=bool(getattr(config, "freeze_rgb_encoder", False)),
     )
 
     if bool(config.load_pretrained) and os.path.isfile(config.pretrained_model_path):
@@ -180,6 +184,9 @@ def main(config: DictConfig):
         log_every_n_steps=10,
         weights_summary="top",
     )
+
+    if hasattr(config, "precision"):
+        trainer_kwargs["precision"] = int(config.precision)
 
     if n_gpus <= 1:
         trainer_kwargs["gpus"] = 1 if torch.cuda.is_available() else 0

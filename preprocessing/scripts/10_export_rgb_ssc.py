@@ -17,6 +17,7 @@ from uavssc.export_common import (
     prepare_sparse_votes_for_scene,
 )
 from uavssc.io import read_image
+from uavssc.image_resize import resolve_image_export_shape, scale_camera_matrix
 from uavssc.monoscene_utils import compute_CP_mega_matrix, compute_local_frustums, downsample_label, vox2pix
 from uavssc.utils import ensure_dir, load_yaml
 
@@ -70,7 +71,9 @@ def main() -> None:
                 continue
 
             img = read_image(row['img_path'])
-            img_H, img_W = img.shape[:2]
+            orig_img_H, orig_img_W = img.shape[:2]
+            img_H, img_W, sy_img, sx_img, resize_mode = resolve_image_export_shape(orig_img_H, orig_img_W, cfg)
+            K_export = scale_camera_matrix(K, sx=sx_img, sy=sy_img)
 
             box = compute_local_box(T_world_cam, occ_u_idx, occ_winner, voxel_size, cfg['local_grid'])
             nx, ny, nz = [int(v) for v in box['grid_size_xyz']]
@@ -93,7 +96,8 @@ def main() -> None:
                 'scene': np.array([scene]),
                 'timestamp': np.array([float(row['timestamp'])], dtype=np.float64),
                 'img_path': np.array([str(row['img_path'])]),
-                'cam_k': K.astype(np.float32),
+                'cam_k': K_export.astype(np.float32),
+                'cam_k_original': K.astype(np.float32),
                 'cam_E': T_cam_world.astype(np.float32),
                 'T_world_cam': T_world_cam.astype(np.float32),
                 'vox_origin': box['origin_world'].astype(np.float32),
@@ -111,6 +115,11 @@ def main() -> None:
                 'ground_debug_ground_z': np.array([float(box['ground_debug'].get('ground_z', np.nan))], dtype=np.float32),
                 'ground_debug_ground_dir': np.array([int(box['ground_debug'].get('ground_dir', 0))], dtype=np.int8),
                 'ground_debug_n_points': np.array([int(box['ground_debug'].get('n_points', 0))], dtype=np.int32),
+                'orig_image_shape_hw': np.array([orig_img_H, orig_img_W], dtype=np.int32),
+                'image_shape_hw': np.array([img_H, img_W], dtype=np.int32),
+                'projection_image_shape_hw': np.array([img_H, img_W], dtype=np.int32),
+                'image_resize_sx_sy': np.array([sx_img, sy_img], dtype=np.float32),
+                'image_resize_mode': np.array([resize_mode]),
                 'focus_t': np.array([float(box['ground_debug'].get('focus_t', 0.0))], dtype=np.float32),
                 'focus_shift_xy_m': np.array([float(box['ground_debug'].get('focus_shift_xy_m', 0.0))], dtype=np.float32),
                 'global_ground_estimate_z': np.array([float(box['ground_debug'].get('global_ground_estimate_z', np.nan))], dtype=np.float32),
@@ -119,7 +128,7 @@ def main() -> None:
             for scale in project_scales:
                 projected_pix, fov_mask, pix_z = vox2pix(
                     cam_E=T_cam_world,
-                    cam_k=K,
+                    cam_k=K_export,
                     vox_origin=box['origin_world'],
                     voxel_size=voxel_size * scale,
                     img_W=img_W,
