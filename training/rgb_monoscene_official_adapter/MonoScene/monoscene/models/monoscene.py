@@ -118,10 +118,12 @@ class MonoScene(pl.LightningModule):
 
                 # project features at each 2D scale to target 3D scale
                 scale_2d = int(scale_2d)
-                projected_pix = batch["projected_pix_{}".format(self.project_scale)][i].cuda()
-                #projected_pix = batch["projected_pix_{}".format(self.project_scale)][i].to(self.device)
-                fov_mask = batch["fov_mask_{}".format(self.project_scale)][i].cuda()
-                #fov_mask = batch["fov_mask_{}".format(self.project_scale)][i].to(self.device)
+                # Keep projection tensors on the same device as the RGB features.
+                # The original MonoScene code used .cuda(), which breaks CPU debug/eval
+                # and can create device mismatches in wrapped/loaded models.
+                device = x_rgb["1_" + str(scale_2d)].device
+                projected_pix = batch["projected_pix_{}".format(self.project_scale)][i].to(device)
+                fov_mask = batch["fov_mask_{}".format(self.project_scale)][i].to(device)
 
                 # Sum all the 3D features
                 if x3d is None:

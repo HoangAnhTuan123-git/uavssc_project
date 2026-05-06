@@ -55,3 +55,10 @@ run: 1
 train_ratio: 0.70
 val_ratio: 0.15
 test_ratio: 0.15
+
+# Evaluation / prediction / visualization
+eval_split: "val"
+predict_output_root: "/root/Tuan/uavssc_project/results/qualitative/rgb_monoscene_predictions"
+visualization_output_root: "/root/Tuan/uavssc_project/results/qualitative/rgb_monoscene_visualizations"
+max_predict_samples: 50
+max_visualization_files: 50

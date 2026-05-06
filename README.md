@@ -41,3 +41,25 @@ bash scripts/reexport_interval5_resized_rgb_npz.sh
 ```
 
 You do not need to rerun manifest building, LiDAR/global semantic fusion, or scene voxel map creation for this OOM fix.
+
+
+## MonoScene B0 evaluation and visualization
+
+After training the lightweight MonoScene B0 adapter, evaluate with:
+
+```bash
+cd /root/Tuan/uavssc_project
+EVAL_CHECKPOINT=/absolute/path/to/checkpoint.ckpt \
+  bash scripts/eval_rgb_monoscene_interval5_4090_b0.sh
+```
+
+Generate qualitative prediction panels with:
+
+```bash
+cd /root/Tuan/uavssc_project
+EVAL_CHECKPOINT=/absolute/path/to/checkpoint.ckpt \
+MAX_PREDICT_SAMPLES=50 \
+  bash scripts/visualize_rgb_monoscene_interval5_4090_b0.sh
+```
+
+Evaluation and visualization now use the same configurable settings as training: `rgb_backbone`, `feature`, `input_image_hw`, `context_prior`, `relation_loss`, `fp_loss`, and `project_1_*`. Keep these consistent with the checkpoint you trained.

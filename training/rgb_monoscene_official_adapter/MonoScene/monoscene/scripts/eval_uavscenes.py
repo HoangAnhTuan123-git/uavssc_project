@@ -1,11 +1,15 @@
 import os
 
 import hydra
+import numpy as np
 import torch
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer
 
-from monoscene.data.uavscenes.params import uavscenes_class_names
+from monoscene.data.uavscenes.params import (
+    uavscenes_class_names,
+    uavscenes_default_class_frequencies,
+)
 from monoscene.data.uavscenes.uav_dm import UAVScenesDataModule
 from monoscene.models.monoscene import MonoScene
 
@@ -22,8 +26,23 @@ def _maybe_parse_scene_filter(scene_filter):
     return scene_filter
 
 
+def _load_class_weights(preprocess_root, n_classes):
+    freq_cache_path = os.path.join(preprocess_root, "uav_class_frequencies.npy")
+    if os.path.isfile(freq_cache_path):
+        freq = np.load(freq_cache_path).astype(np.float64)
+    else:
+        freq = uavscenes_default_class_frequencies.astype(np.float64)
+    if freq.shape[0] < n_classes:
+        freq = np.pad(freq, (0, n_classes - freq.shape[0]), constant_values=1.0)
+    freq = freq[:n_classes]
+    freq[freq <= 0] = 1.0
+    return torch.from_numpy(1.0 / np.log(freq + 1.001)).float()
+
+
 @hydra.main(config_name="../config/uavscenes.yaml")
 def main(config: DictConfig):
+    torch.set_grad_enabled(False)
+
     if not os.path.isfile(config.eval_checkpoint_path):
         raise FileNotFoundError(
             "eval_checkpoint_path does not exist: {}".format(config.eval_checkpoint_path)
@@ -47,9 +66,23 @@ def main(config: DictConfig):
         scene_filter=scene_filter,
         data_root=getattr(config, "uav_data_root", None),
         split_files=split_files,
+        input_image_hw=getattr(config, "input_image_hw", None),
     )
     data_module.setup()
 
+    project_res = ["1"]
+    if bool(config.project_1_2):
+        project_res.append("2")
+    if bool(config.project_1_4):
+        project_res.append("4")
+    if bool(config.project_1_8):
+        project_res.append("8")
+
+    class_weights = _load_class_weights(config.uav_preprocess_root, len(uavscenes_class_names))
+
+    # IMPORTANT: these construction arguments must match training, especially
+    # rgb_backbone, feature, context_prior, project_res, and input-image scaling.
+    # Otherwise evaluation may instantiate B7 or the wrong decoder shape and OOM/fail.
     model = MonoScene.load_from_checkpoint(
         config.eval_checkpoint_path,
         dataset="kitti",
@@ -57,12 +90,30 @@ def main(config: DictConfig):
         project_scale=int(config.project_scale),
         fp_loss=bool(config.fp_loss),
         full_scene_size=full_scene_size,
+        project_res=project_res,
+        frustum_size=int(config.frustum_size),
+        n_relations=int(config.n_relations),
         n_classes=len(uavscenes_class_names),
         class_names=uavscenes_class_names,
+        context_prior=bool(config.context_prior),
+        relation_loss=bool(config.relation_loss),
+        CE_ssc_loss=bool(config.CE_ssc_loss),
+        sem_scal_loss=bool(config.sem_scal_loss),
+        geo_scal_loss=bool(config.geo_scal_loss),
+        lr=float(config.lr),
+        weight_decay=float(config.weight_decay),
+        class_weights=class_weights,
+        rgb_backbone=getattr(config, "rgb_backbone", "tf_efficientnet_b0_ns"),
+        rgb_pretrained=bool(getattr(config, "rgb_pretrained", False)),
+        freeze_rgb_encoder=bool(getattr(config, "freeze_rgb_encoder", False)),
+        strict=True,
     )
     model.eval()
 
     trainer_kwargs = dict(deterministic=True)
+    if hasattr(config, "precision"):
+        trainer_kwargs["precision"] = int(config.precision)
+
     n_gpus = int(config.n_gpus)
     if n_gpus <= 1:
         trainer_kwargs["gpus"] = 1 if torch.cuda.is_available() else 0
@@ -72,7 +123,14 @@ def main(config: DictConfig):
         trainer_kwargs["sync_batchnorm"] = True
 
     trainer = Trainer(**trainer_kwargs)
-    trainer.test(model, test_dataloaders=data_module.val_dataloader())
+    split = str(getattr(config, "eval_split", "val")).lower()
+    if split == "test":
+        loader = data_module.test_dataloader()
+    elif split == "train":
+        loader = data_module.train_dataloader()
+    else:
+        loader = data_module.val_dataloader()
+    trainer.test(model, test_dataloaders=loader)
 
 
 if __name__ == "__main__":

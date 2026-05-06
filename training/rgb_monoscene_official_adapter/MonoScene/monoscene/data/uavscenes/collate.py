@@ -8,8 +8,11 @@ def collate_fn(batch):
     targets = []
     frame_ids = []
     sequences = []
+    img_paths = []
     cam_ks = []
     cam_Es = []
+    image_shape_hws = []
+    projection_shape_hws = []
     frustums_masks = []
     frustums_class_dists = []
 
@@ -22,6 +25,8 @@ def collate_fn(batch):
     for input_dict in batch:
         cam_ks.append(torch.from_numpy(input_dict["cam_k"]).double())
         cam_Es.append(torch.from_numpy(input_dict["cam_E"]).float())
+        image_shape_hws.append(torch.from_numpy(input_dict["image_shape_hw"]).int())
+        projection_shape_hws.append(torch.from_numpy(input_dict["projection_shape_hw"]).int())
 
         if input_dict.get("frustums_masks") is not None:
             frustums_masks.append(torch.from_numpy(input_dict["frustums_masks"]))
@@ -41,12 +46,16 @@ def collate_fn(batch):
         imgs.append(input_dict["img"])
         frame_ids.append(input_dict["frame_id"])
         sequences.append(input_dict["sequence"])
+        img_paths.append(input_dict.get("img_path", ""))
         targets.append(torch.from_numpy(input_dict["target"]))
         CP_mega_matrices.append(torch.from_numpy(input_dict["CP_mega_matrix"]))
 
     ret_data = {
         "frame_id": frame_ids,
         "sequence": sequences,
+        "img_path": img_paths,
+        "image_shape_hw": image_shape_hws,
+        "projection_shape_hw": projection_shape_hws,
         "frustums_class_dists": frustums_class_dists,
         "frustums_masks": frustums_masks,
         "cam_k": cam_ks,
