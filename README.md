@@ -78,3 +78,4 @@ Recommended current baseline order:
 4. RGB+LiDAR fusion, only if the fusion export smoke test is affordable.
 
 Do not train MonoScene full-resolution UAV images or EfficientNet-B7 on a 24GB RTX 4090. Use the stable defaults in the launcher scripts unless deliberately testing a new setting.
+![alt text](image.png)
