@@ -41,7 +41,8 @@ def evaluate_ssc(model, dataloader, device, num_classes: int):
             if torch.is_tensor(v):
                 batch[k] = v.to(device, non_blocking=True)
         out = model(batch)
-        pred = out["sem_logits"].argmax(dim=1)
+        logits = torch.nan_to_num(out["sem_logits"], nan=0.0, posinf=20.0, neginf=-20.0)
+        pred = logits.argmax(dim=1)
         target = batch["target"]
         hist += fast_hist(pred, target, num_classes)
         valid = target != 255

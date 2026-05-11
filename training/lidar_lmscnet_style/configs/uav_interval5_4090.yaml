@@ -1,0 +1,30 @@
+seed: 42
+output_dir: /root/Tuan/uavssc_project/checkpoints/lidar_lmscnet/interval5_lmscnet_style_debug
+
+data:
+  preprocess_root: /root/Tuan/uavssc_project/data/processed/interval5/lidar_ssc_npz
+  scene_filter: []
+  split_ratios: [0.70, 0.15, 0.15]
+  split_files:
+    train: ''
+    val: ''
+    test: ''
+
+model:
+  name: lmscnet_style
+  num_classes: 17
+  infer_num_classes_from_data: false
+  in_channels: 4
+  nz: 32
+  bev_base: 64
+  hidden_dim: 64
+
+train:
+  batch_size: 4
+  epochs: 10
+  num_workers: 8
+  lr: 0.0001
+  weight_decay: 0.0001
+  amp: true
+  occ_loss_weight: 0.25
+  grad_clip: 1.0

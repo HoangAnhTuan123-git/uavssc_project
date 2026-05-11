@@ -37,7 +37,7 @@ def main():
         extra["hidden"] = int(cfg["model"].get("hidden_dim", 48))
     model = LMSCNetStyleSSC(num_classes=num_classes, in_channels=int(cfg["model"].get("in_channels", 4)), **extra)
 
-    ckpt = torch.load(args.checkpoint, map_location="cpu")
+    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     model.load_state_dict(ckpt["model"], strict=False)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)

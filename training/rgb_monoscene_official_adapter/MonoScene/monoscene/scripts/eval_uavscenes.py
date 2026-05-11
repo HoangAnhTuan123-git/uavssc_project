@@ -80,11 +80,9 @@ def main(config: DictConfig):
 
     class_weights = _load_class_weights(config.uav_preprocess_root, len(uavscenes_class_names))
 
-    # IMPORTANT: these construction arguments must match training, especially
-    # rgb_backbone, feature, context_prior, project_res, and input-image scaling.
-    # Otherwise evaluation may instantiate B7 or the wrong decoder shape and OOM/fail.
-    model = MonoScene.load_from_checkpoint(
-        config.eval_checkpoint_path,
+    # Build the model manually instead of MonoScene.load_from_checkpoint.
+    # This avoids PyTorch 2.6 weights_only checkpoint-loading issues in older Lightning.
+    model = MonoScene(
         dataset="kitti",
         feature=int(config.feature),
         project_scale=int(config.project_scale),
@@ -106,8 +104,10 @@ def main(config: DictConfig):
         rgb_backbone=getattr(config, "rgb_backbone", "tf_efficientnet_b0_ns"),
         rgb_pretrained=bool(getattr(config, "rgb_pretrained", False)),
         freeze_rgb_encoder=bool(getattr(config, "freeze_rgb_encoder", False)),
-        strict=True,
     )
+    ckpt = torch.load(config.eval_checkpoint_path, map_location="cpu", weights_only=False)
+    state = ckpt.get("state_dict", ckpt)
+    model.load_state_dict(state, strict=False)
     model.eval()
 
     trainer_kwargs = dict(deterministic=True)

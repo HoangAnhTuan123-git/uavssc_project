@@ -35,7 +35,7 @@ def main():
         lidar_hidden=int(cfg["model"].get("lidar_hidden", 48)),
         fuse_hidden=int(cfg["model"].get("fuse_hidden", 64)),
     )
-    ckpt = torch.load(args.checkpoint, map_location="cpu")
+    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     model.load_state_dict(ckpt["model"], strict=False)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)

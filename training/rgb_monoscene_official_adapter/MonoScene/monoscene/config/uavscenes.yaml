@@ -1,32 +1,28 @@
 # UAVScenes config for MonoScene transfer learning
-uav_preprocess_root: "/path/to/rgb_npz_root"
-uav_data_root: "/path/to/UAVScenes"
-uav_logdir: "./uav_logs"
+# Launcher scripts override these paths by default.
+uav_preprocess_root: "/root/Tuan/uavssc_project/data/processed/interval5/rgb_ssc_npz"
+uav_data_root: "/root/Tuan/uavssc_project/data/raw/uavscenes_official"
+uav_logdir: "/root/Tuan/uavssc_project/checkpoints/rgb_monoscene/manual_config_run"
 
 scene_filter: ""
-
 split_files:
   train: ""
   val: ""
   test: ""
-load_pretrained: true
-pretrained_model_path: "trained_models/monoscene_kitti.ckpt"
+
+load_pretrained: false
+pretrained_model_path: ""
+resume_from_checkpoint: ""
 eval_checkpoint_path: "CHANGE_ME"
 
-# Training image size as [height, width].
-# Original UAVScenes frames are 2048x2448; that is too large for MonoScene on 24GB GPUs.
-# This value is applied online by the DataLoader, so existing NPZ files do not need to be rebuilt.
-input_image_hw: [640, 768]
-
-# RGB backbone. B7 is the original MonoScene setting but is too heavy for UAVScenes on 24GB GPUs.
-# Recommended order: b0 for debugging/stable training, then b4 if memory allows.
+input_image_hw: [224, 320]
 rgb_backbone: "tf_efficientnet_b0_ns"
 rgb_pretrained: true
 freeze_rgb_encoder: false
 
 project_scale: 2
 full_scene_size: [128, 128, 32]
-feature: 32
+feature: 64
 n_relations: 4
 frustum_size: 4
 
@@ -41,14 +37,14 @@ project_1_2: false
 project_1_4: false
 project_1_8: false
 
-max_epochs: 30
+max_epochs: 10
 batch_size: 1
 n_gpus: 1
-num_workers_per_gpu: 4
-# Use AMP to reduce GPU memory. Set to 32 if your PyTorch Lightning version has AMP issues.
+num_workers_per_gpu: 8
 precision: 16
-lr: 1.0e-4
+lr: 1.0e-5
 weight_decay: 1.0e-4
+gradient_clip_val: 1.0
 exp_prefix: "uav_monoscene"
 run: 1
 
@@ -56,7 +52,6 @@ train_ratio: 0.70
 val_ratio: 0.15
 test_ratio: 0.15
 
-# Evaluation / prediction / visualization
 eval_split: "val"
 predict_output_root: "/root/Tuan/uavssc_project/results/qualitative/rgb_monoscene_predictions"
 visualization_output_root: "/root/Tuan/uavssc_project/results/qualitative/rgb_monoscene_visualizations"

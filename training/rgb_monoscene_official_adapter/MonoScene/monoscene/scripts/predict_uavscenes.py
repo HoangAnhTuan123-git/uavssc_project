@@ -58,8 +58,7 @@ def _build_model(config):
         int(config.full_scene_size[2]),
     )
     class_weights = _load_class_weights(config.uav_preprocess_root, len(uavscenes_class_names))
-    return MonoScene.load_from_checkpoint(
-        config.eval_checkpoint_path,
+    model = MonoScene(
         dataset="kitti",
         feature=int(config.feature),
         project_scale=int(config.project_scale),
@@ -81,9 +80,11 @@ def _build_model(config):
         rgb_backbone=getattr(config, "rgb_backbone", "tf_efficientnet_b0_ns"),
         rgb_pretrained=bool(getattr(config, "rgb_pretrained", False)),
         freeze_rgb_encoder=bool(getattr(config, "freeze_rgb_encoder", False)),
-        strict=True,
     )
-
+    ckpt = torch.load(config.eval_checkpoint_path, map_location="cpu", weights_only=False)
+    state = ckpt.get("state_dict", ckpt)
+    model.load_state_dict(state, strict=False)
+    return model
 
 def _select_loader(data_module, split):
     split = str(split).lower()

@@ -44,7 +44,7 @@ def main():
         hidden_dim=int(cfg["model"].get("hidden_dim", 64)),
         num_heads=int(cfg["model"].get("num_heads", 4)),
     )
-    ckpt = torch.load(args.checkpoint, map_location="cpu")
+    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     model.load_state_dict(ckpt["model"], strict=False)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)

@@ -63,3 +63,18 @@ MAX_PREDICT_SAMPLES=50 \
 ```
 
 Evaluation and visualization now use the same configurable settings as training: `rgb_backbone`, `feature`, `input_image_hw`, `context_prior`, `relation_loss`, `fp_loss`, and `project_1_*`. Keep these consistent with the checkpoint you trained.
+
+---
+
+## Current stabilized workflow note
+
+This package has been refreshed with the latest interval5, MonoScene, VoxFormer-style, LiDAR-only, and RGB+LiDAR fusion fixes. See [`PROJECT_UPDATE_SUMMARY_FINAL.md`](PROJECT_UPDATE_SUMMARY_FINAL.md) for the exact commands and what changed.
+
+Recommended current baseline order:
+
+1. RGB-only MonoScene B0/F64, using `scripts/train_rgb_monoscene_interval5_4090_b0.sh`.
+2. RGB-only VoxFormer-style, using `scripts/train_rgb_voxformer_interval5_4090.sh`.
+3. LiDAR-only LMSCNet-style, only after a 200-sample export smoke test.
+4. RGB+LiDAR fusion, only if the fusion export smoke test is affordable.
+
+Do not train MonoScene full-resolution UAV images or EfficientNet-B7 on a 24GB RTX 4090. Use the stable defaults in the launcher scripts unless deliberately testing a new setting.

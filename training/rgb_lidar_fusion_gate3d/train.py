@@ -23,8 +23,8 @@ def main():
     split_files = cfg["data"].get("split_files", {}) or {}
     image_size = tuple(cfg["data"].get("image_size", [640, 640]))
 
-    train_ds = FusionSSCNPZDataset(cfg["data"]["preprocess_root"], cfg["data"].get("data_root", None), "train", split_ratios=split_ratios, scene_filter=scene_filter, image_size=image_size, color_jitter=True)
-    val_ds = FusionSSCNPZDataset(cfg["data"]["preprocess_root"], cfg["data"].get("data_root", None), "val", split_ratios=split_ratios, scene_filter=scene_filter, image_size=image_size, color_jitter=False)
+    train_ds = FusionSSCNPZDataset(cfg["data"]["preprocess_root"], cfg["data"].get("data_root", None), "train", split_ratios=split_ratios, scene_filter=scene_filter, image_size=image_size, color_jitter=True, sample_list_path=split_files.get("train"))
+    val_ds = FusionSSCNPZDataset(cfg["data"]["preprocess_root"], cfg["data"].get("data_root", None), "val", split_ratios=split_ratios, scene_filter=scene_filter, image_size=image_size, color_jitter=False, sample_list_path=split_files.get("val"))
 
     if bool(cfg["model"].get("infer_num_classes_from_data", True)):
         cfg["model"]["num_classes"] = int(infer_num_classes(train_ds.get_sample_paths(), fallback=int(cfg["model"].get("num_classes", 26))))

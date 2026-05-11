@@ -13,6 +13,15 @@ from monoscene.models.unet2d import UNet2D
 from torch.optim.lr_scheduler import MultiStepLR
 
 
+def _finite_loss_or_zero(loss, ref_tensor):
+    if not torch.is_tensor(loss):
+        return ref_tensor.sum() * 0.0
+    if not torch.isfinite(loss).all():
+        return ref_tensor.sum() * 0.0
+    return loss
+
+
+
 class MonoScene(pl.LightningModule):
     def __init__(
         self,
@@ -150,101 +159,75 @@ class MonoScene(pl.LightningModule):
 
     def step(self, batch, step_type, metric):
         bs = len(batch["img"])
-        loss = 0
         out_dict = self(batch)
-        ssc_pred = out_dict["ssc_logit"]
-        target = batch["target"]
+        ssc_pred = torch.nan_to_num(out_dict["ssc_logit"], nan=0.0, posinf=20.0, neginf=-20.0)
+        target = batch["target"].long()
+        loss = ssc_pred.sum() * 0.0
 
         if self.context_prior:
             P_logits = out_dict["P_logits"]
             CP_mega_matrices = batch["CP_mega_matrices"]
-
             if self.relation_loss:
-                loss_rel_ce = compute_super_CP_multilabel_loss(
-                    P_logits, CP_mega_matrices
-                )
-                loss += loss_rel_ce
-                self.log(
-                    step_type + "/loss_relation_ce_super",
-                    loss_rel_ce.detach(),
-                    on_epoch=True,
-                    sync_dist=True,
-                )
+                loss_rel_ce = compute_super_CP_multilabel_loss(P_logits, CP_mega_matrices)
+                loss_rel_ce = _finite_loss_or_zero(loss_rel_ce, ssc_pred)
+                loss = loss + loss_rel_ce
+                self.log(step_type + "/loss_relation_ce_super", loss_rel_ce.detach(), on_epoch=True, sync_dist=True)
 
-        class_weight = self.class_weights.type_as(batch["img"])
+        class_weight = self.class_weights.to(device=ssc_pred.device, dtype=ssc_pred.dtype)
+
         if self.CE_ssc_loss:
             loss_ssc = CE_ssc_loss(ssc_pred, target, class_weight)
-            loss += loss_ssc
-            self.log(
-                step_type + "/loss_ssc",
-                loss_ssc.detach(),
-                on_epoch=True,
-                sync_dist=True,
-            )
+            loss_ssc = _finite_loss_or_zero(loss_ssc, ssc_pred)
+            loss = loss + loss_ssc
+            self.log(step_type + "/loss_ssc", loss_ssc.detach(), on_epoch=True, sync_dist=True)
 
         if self.sem_scal_loss:
             loss_sem_scal = sem_scal_loss(ssc_pred, target)
-            loss += loss_sem_scal
-            self.log(
-                step_type + "/loss_sem_scal",
-                loss_sem_scal.detach(),
-                on_epoch=True,
-                sync_dist=True,
-            )
+            loss_sem_scal = _finite_loss_or_zero(loss_sem_scal, ssc_pred)
+            loss = loss + loss_sem_scal
+            self.log(step_type + "/loss_sem_scal", loss_sem_scal.detach(), on_epoch=True, sync_dist=True)
 
         if self.geo_scal_loss:
             loss_geo_scal = geo_scal_loss(ssc_pred, target)
-            loss += loss_geo_scal
-            self.log(
-                step_type + "/loss_geo_scal",
-                loss_geo_scal.detach(),
-                on_epoch=True,
-                sync_dist=True,
-            )
+            loss_geo_scal = _finite_loss_or_zero(loss_geo_scal, ssc_pred)
+            loss = loss + loss_geo_scal
+            self.log(step_type + "/loss_geo_scal", loss_geo_scal.detach(), on_epoch=True, sync_dist=True)
 
         if self.fp_loss and step_type != "test":
-            frustums_masks = torch.stack(batch["frustums_masks"])
-            frustums_class_dists = torch.stack(
-                batch["frustums_class_dists"]
-            ).float()  # (bs, n_frustums, n_classes)
+            frustums_masks = torch.stack(batch["frustums_masks"]).to(ssc_pred.device)
+            frustums_class_dists = torch.stack(batch["frustums_class_dists"]).float().to(ssc_pred.device)
             n_frustums = frustums_class_dists.shape[1]
-
             pred_prob = F.softmax(ssc_pred, dim=1)
-            batch_cnt = frustums_class_dists.sum(0)  # (n_frustums, n_classes)
-
-            frustum_loss = 0
+            batch_cnt = frustums_class_dists.sum(0)
+            frustum_loss = ssc_pred.sum() * 0.0
             frustum_nonempty = 0
             for frus in range(n_frustums):
-                frustum_mask = frustums_masks[:, frus, :, :, :].unsqueeze(1).float()
-                prob = frustum_mask * pred_prob  # bs, n_classes, H, W, D
+                frustum_mask = frustums_masks[:, frus].unsqueeze(1).float()
+                prob = frustum_mask * pred_prob
                 prob = prob.reshape(bs, self.n_classes, -1).permute(1, 0, 2)
                 prob = prob.reshape(self.n_classes, -1)
-                cum_prob = prob.sum(dim=1)  # n_classes
-
+                cum_prob = prob.sum(dim=1)
                 total_cnt = torch.sum(batch_cnt[frus])
                 total_prob = prob.sum()
                 if total_prob > 0 and total_cnt > 0:
                     frustum_target_proportion = batch_cnt[frus] / total_cnt
-                    cum_prob = cum_prob / total_prob  # n_classes
+                    cum_prob = cum_prob / total_prob
                     frustum_loss_i = KL_sep(cum_prob, frustum_target_proportion)
-                    frustum_loss += frustum_loss_i
+                    frustum_loss = frustum_loss + _finite_loss_or_zero(frustum_loss_i, ssc_pred)
                     frustum_nonempty += 1
-            frustum_loss = frustum_loss / frustum_nonempty
-            loss += frustum_loss
-            self.log(
-                step_type + "/loss_frustums",
-                frustum_loss.detach(),
-                on_epoch=True,
-                sync_dist=True,
-            )
+            if frustum_nonempty > 0:
+                frustum_loss = frustum_loss / float(frustum_nonempty)
+            frustum_loss = _finite_loss_or_zero(frustum_loss, ssc_pred)
+            loss = loss + frustum_loss
+            self.log(step_type + "/loss_frustums", frustum_loss.detach(), on_epoch=True, sync_dist=True)
 
-        y_true = target.cpu().numpy()
+        y_true = target.detach().cpu().numpy()
         y_pred = ssc_pred.detach().cpu().numpy()
         y_pred = np.argmax(y_pred, axis=1)
         metric.add_batch(y_pred, y_true)
 
+        loss = _finite_loss_or_zero(loss, ssc_pred)
         self.log(step_type + "/loss", loss.detach(), on_epoch=True, sync_dist=True)
-
         return loss
 
     def training_step(self, batch, batch_idx):

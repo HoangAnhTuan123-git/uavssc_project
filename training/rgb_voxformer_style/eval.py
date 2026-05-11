@@ -43,7 +43,7 @@ def main():
         feat_dim=int(cfg["model"].get("feat_dim", 96)),
         hidden_dim=int(cfg["model"].get("hidden_dim", 64)),
     )
-    ckpt = torch.load(args.checkpoint, map_location="cpu")
+    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     model.load_state_dict(ckpt["model"], strict=False)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)

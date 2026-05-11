@@ -1,5 +1,6 @@
 import os
 import json
+import inspect
 
 import hydra
 import numpy as np
@@ -37,7 +38,7 @@ def _compute_class_frequencies(npz_paths, n_classes, cache_path=None):
 
 
 def _partial_load_checkpoint(model, ckpt_path):
-    ckpt = torch.load(ckpt_path, map_location="cpu")
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     state_dict = ckpt.get("state_dict", ckpt)
     model_state = model.state_dict()
 
@@ -176,6 +177,8 @@ def main(config: DictConfig):
     ]
 
     trainer_kwargs = dict(
+        gradient_clip_val=float(getattr(config, "gradient_clip_val", 1.0)),
+        gradient_clip_algorithm="norm",
         callbacks=checkpoint_callbacks,
         deterministic=False,
         max_epochs=int(config.max_epochs),
@@ -195,8 +198,16 @@ def main(config: DictConfig):
         trainer_kwargs["accelerator"] = "ddp"
         trainer_kwargs["sync_batchnorm"] = True
 
+
+    resume_ckpt = getattr(config, "resume_from_checkpoint", None) or None
+    if resume_ckpt and "resume_from_checkpoint" in inspect.signature(Trainer).parameters:
+        trainer_kwargs["resume_from_checkpoint"] = resume_ckpt
+
     trainer = Trainer(**trainer_kwargs)
-    trainer.fit(model, data_module)
+    fit_kwargs = {}
+    if resume_ckpt and "ckpt_path" in inspect.signature(trainer.fit).parameters:
+        fit_kwargs["ckpt_path"] = resume_ckpt
+    trainer.fit(model, data_module, **fit_kwargs)
 
 
 if __name__ == "__main__":

@@ -1,27 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Memory-safe MonoScene RGB-only UAVScenes launcher for RTX 4090 24GB.
-# This uses EfficientNet-B0 instead of original B7, disables the heavy context-prior path,
-# and uses a smaller feature width. It is the recommended first successful training run.
-
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MONOSCENE_ROOT="${PROJECT_ROOT}/training/rgb_monoscene_official_adapter/MonoScene"
 NPZ_ROOT="${NPZ_ROOT:-${PROJECT_ROOT}/data/processed/interval5/rgb_ssc_npz}"
 RAW_ROOT="${UAVSSC_DATA_ROOT:-${PROJECT_ROOT}/data/raw/uavscenes_official}"
 RGB_BACKBONE="${RGB_BACKBONE:-tf_efficientnet_b0_ns}"
-INPUT_IMAGE_HW="${INPUT_IMAGE_HW:-[320,384]}"
-FEATURE="${FEATURE:-32}"
+INPUT_IMAGE_HW="${INPUT_IMAGE_HW:-[224,320]}"
+FEATURE="${FEATURE:-64}"
 PRECISION="${PRECISION:-16}"
-LOG_ROOT="${LOG_ROOT:-${PROJECT_ROOT}/checkpoints/rgb_monoscene/interval5_${RGB_BACKBONE}_f${FEATURE}}"
+LR="${LR:-0.00001}"
+LOG_ROOT="${LOG_ROOT:-${PROJECT_ROOT}/checkpoints/rgb_monoscene/interval5_${RGB_BACKBONE}_f${FEATURE}_lr${LR}}"
+RESUME_CKPT="${RESUME_CKPT:-}"
 
 cd "${MONOSCENE_ROOT}"
 export PYTHONPATH="${MONOSCENE_ROOT}:${PYTHONPATH:-}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True,max_split_size_mb:64}"
 
 python - <<PY
-import glob
-import os
+import glob, os
 root = ${NPZ_ROOT@Q}
 files = glob.glob(os.path.join(root, "*.npz")) + glob.glob(os.path.join(root, "*", "*.npz"))
 if not files:
@@ -41,10 +38,14 @@ python -m monoscene.scripts.train_uavscenes \
   input_image_hw="${INPUT_IMAGE_HW}" \
   feature="${FEATURE}" \
   n_gpus=1 \
-  batch_size=1 \
-  num_workers_per_gpu="${NUM_WORKERS:-2}" \
-  max_epochs="${MAX_EPOCHS:-30}" \
+  batch_size="${BATCH_SIZE:-1}" \
+  num_workers_per_gpu="${NUM_WORKERS:-8}" \
+  max_epochs="${MAX_EPOCHS:-10}" \
   precision="${PRECISION}" \
+  lr="${LR}" \
+  weight_decay="${WEIGHT_DECAY:-0.0001}" \
+  gradient_clip_val="${GRAD_CLIP:-1.0}" \
+  resume_from_checkpoint="${RESUME_CKPT}" \
   load_pretrained="${LOAD_PRETRAINED:-false}" \
   context_prior="${CONTEXT_PRIOR:-false}" \
   relation_loss="${RELATION_LOSS:-false}" \
