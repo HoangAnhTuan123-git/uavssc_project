@@ -13,7 +13,8 @@ split_files:
 load_pretrained: false
 pretrained_model_path: ""
 resume_from_checkpoint: ""
-eval_checkpoint_path: "CHANGE_ME"
+eval_checkpoint_path: "CHANGE ME"
+eval_checkpoint_path: "/mnt/c/Study/Uni/B3/Intern/uavssc_project/checkpoints/rgb_monoscene/debug_b0_f64_lr1e5_clean2/uav_monoscene_uavscenes_1_sceneall_fs128_128_32_bs1_lr1e-05/checkpoints/epoch007val/mIoU0.05630.ckpt"
 
 input_image_hw: [224, 320]
 rgb_backbone: "tf_efficientnet_b0_ns"

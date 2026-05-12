@@ -17,8 +17,15 @@ data/raw/uavscenes_official/*
 data/processed/cache/*
 !data/processed/cache/.gitkeep
 
+data/processed/interval5/*
+
 checkpoints/**/*
 !checkpoints/**/.gitkeep
+
+PLY/**/*
+!PLY/view_voxels.py
+
+results/**/*
 
 logs/**/*
 !logs/**/.gitkeep

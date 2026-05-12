@@ -103,7 +103,8 @@ def _move_batch_for_forward(batch, device):
     return batch
 
 
-@hydra.main(config_name="../config/uavscenes.yaml")
+#@hydra.main(config_name="../config/uavscenes.yaml")
+@hydra.main(version_base="1.1", config_path="../config", config_name="uavscenes")
 def main(config: DictConfig):
     torch.set_grad_enabled(False)
     ckpt = str(config.eval_checkpoint_path)
